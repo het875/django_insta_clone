@@ -6,7 +6,7 @@ from django.conf import settings
 def generate_jwt(user):
     payload = {
         'user_id' : user.user_id,
-        'username' : user.username
+        'username' : user.username,
         'exp' : datetime.datetime.utcnow() + datetime.timedelta(days=1),
         'iat' : datetime.datetime.utcnow()
     }
