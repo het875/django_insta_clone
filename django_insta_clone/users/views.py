@@ -2,7 +2,7 @@ from django.shortcuts import render
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.contrib.auth import authenticate
-from django.contrib.auth.hashers import make_password
+from django.contrib.auth.hashers import make_password , check_password
 from django.db import IntegrityError
 
 from rest_framework import status
@@ -113,6 +113,7 @@ def register(request):
     return JsonResponse({'Message': 'Invalid request'}, status=status.HTTP_400_BAD_REQUEST)
 
 
+
 @csrf_exempt
 def login(request):
     if request.method == 'POST':
@@ -124,12 +125,70 @@ def login(request):
         if not username or not password:
             return JsonResponse({'message': 'Username and password are required.'}, status=status.HTTP_400_BAD_REQUEST)
 
-        user = authenticate(username=username, password=password)
+        # Fetch the user by username
+        try:
+            user = User.objects.get(username=username)
+        except User.DoesNotExist:
+            return JsonResponse({'message': 'Invalid credentials Username'}, status=status.HTTP_400_BAD_REQUEST)
 
-        if user:
-            token = generate_jwt(user)
-            return JsonResponse({'token': token}, status=status.HTTP_200_OK)
+        if check_password(password, user.password):
+            #token = generate_jwt(user)
 
-        return JsonResponse({'message': 'Invalid credentials'}, status=status.HTTP_400_BAD_REQUEST)
+            refresh = RefreshToken.for_user(user)
+            access_token = str(refresh.access_token)
+            refresh_token = str(refresh)
+
+            # Get the expiration time of the access token
+            access_token_expiry = datetime.utcnow() + timedelta(seconds=3600)  # 1 hour expiry
+
+            response_data = {
+                "access_token": access_token,
+                "refresh_token": refresh_token,
+                "access_token_expiry": access_token_expiry.strftime('%Y-%m-%dT%H:%M:%SZ'),
+                "user_data": {
+                    "user_id": user.user_id,
+                    "username": user.username,
+                }
+            }
+
+            return JsonResponse( response_data, status=status.HTTP_200_OK)
+        else:
+            return JsonResponse({'message': 'Invalid Password credentials'}, status=status.HTTP_400_BAD_REQUEST)
 
     return JsonResponse({'message': 'Invalid Request'}, status=status.HTTP_400_BAD_REQUEST)
+
+
+def get_profile(request):
+    # Extract the JWT token from the Authorization header
+    token = request.headers.get('Authorization')
+
+    if token:
+        # Extract the token from "Bearer <token>"
+        token = token.split(' ')[1]
+
+        # Decode the JWT token and extract the user ID from it
+        payload = decode_jwt(token)
+
+        if payload:
+            # If token is valid, fetch the user from the database using the user ID
+            try:
+                user = User.objects.get(id=payload['user_id'])
+                # Return user details as JSON response
+                return JsonResponse({
+                    'user_id': user.user_id,
+                    'username': user.username,
+                    'email': user.email,
+                    'profile_picture': user.profile_picture.url if user.profile_picture else None,
+                    'first_name': user.first_name,
+                    'last_name': user.last_name,
+                    'bio': user.bio,
+                    'dob': user.dob,
+                    'mobile_number': user.mobile_number,
+                })
+            except User.DoesNotExist:
+                return JsonResponse({'message': 'User not found'}, status=404)
+
+        else:
+            return JsonResponse({'message': 'Invalid or expired token'}, status=401)
+
+    return JsonResponse({'message': 'Authorization token missing'}, status=401)
