@@ -39,6 +39,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'rest_framework',
+    'rest_framework.authtoken',
     'users',
     'posts',
 ]
@@ -136,3 +137,29 @@ MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+
+
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework_simplejwt.authentication.JWTAuthentication',  # Use JWTAuthentication
+    ],
+    'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.IsAuthenticated',  # Ensure views are accessible to authenticated users only
+    ],
+}
+
+
+# JWT Settings
+from datetime import timedelta
+
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=15),  # Access token expires in 15 minutes
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=1),  # Refresh token lasts for 1 day
+    'ROTATE_REFRESH_TOKENS': False,  # Do not rotate refresh tokens, use one refresh token
+    'BLACKLIST_AFTER_ROTATION': True,  # Blacklist refresh token after use
+    'UPDATE_LAST_LOGIN': False,  # Do not update the last login time
+    'ALGORITHM': 'HS256',  # The algorithm used for signing the JWT tokens
+    'SIGNING_KEY': 'your-secret-key',  # Secret key for signing tokens (replace with your own secret key)
+    'AUTH_HEADER_TYPES': ('Bearer',),  # Use 'Bearer' for authorization header
+}
